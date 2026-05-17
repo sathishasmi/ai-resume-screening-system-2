@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Resume Analyzer</title>
+
+    <!-- Chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+    <style>
+        body { font-family: Arial; background: #f5f7fa; }
+
+        .container {
+            max-width: 650px;
+            margin: 40px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 { text-align: center; }
+
+        select, textarea, input {
+            width: 100%;
+            margin-top: 10px;
+            padding: 8px;
+        }
+
+        button {
+            margin-top: 15px;
+            padding: 10px;
+            width: 100%;
+            background: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        #result { margin-top: 20px; }
+
+        .gauge-container {
+            position: relative;
+            height: 40px;
+            border-radius: 20px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .gauge-bar {
+            height: 100%;
+            background: linear-gradient(to right, red, orange, yellow, green);
+        }
+
+        .gauge-pointer {
+            position: absolute;
+            top: -10px;
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 20px solid black;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+    <h1>📄 Resume Analyzer</h1>
+
+    <form id="form">
+        <input type="file" id="file" required>
+
+        <label>Select Job:</label>
+        <select id="job_id" required>
+            <option value="">Loading jobs...</option>
+        </select>
+
+        <button type="submit">Analyze</button>
+    </form>
+
+    <div id="result"></div>
+</div>
+
+<script>
+let chart;
+let globalData; //  store analyze data
+
+// LOAD JOBS
+async function loadJobs() {
+    const res = await fetch("/jobs");
+    const jobs = await res.json();
+
+    let dropdown = document.getElementById("job_id");
+    dropdown.innerHTML = "";
+
+    jobs.forEach(job => {
+        dropdown.innerHTML += `<option value="${job.id}">${job.title}</option>`;
+    });
+}
+loadJobs();
+
+
+// FORM SUBMIT
+document.getElementById("form").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const resultDiv = document.getElementById("result");
+    resultDiv.innerHTML = " Analyzing...";
+
+    const formData = new FormData();
+    formData.append("file", document.getElementById("file").files[0]);
+    formData.append("job_id", document.getElementById("job_id").value);
+
+    const res = await fetch("/analyze", {
+        method: "POST",
+        body: formData
+    });
+
+    const data = await res.json();
+    globalData = data; //  store
+
+    if (data.error) {
+        resultDiv.innerHTML = `<p style="color:red">${data.error}</p>`;
+        return;
+    }
+
+    resultDiv.innerHTML = `
+        <h3>📊 Result</h3>
+        <p><b>Name:</b> ${data.name}</p>
+        <p><b>Job:</b> ${data.job_title}</p>
+        <p><b>Score:</b> ${data.score}%</p>
+
+        <div class="gauge-container">
+            <div class="gauge-bar"></div>
+            <div class="gauge-pointer" id="pointer"></div>
+        </div>
+
+        <p><b>Missing Skills:</b> 
+        ${data.missing_skills.length ? data.missing_skills.join(", ") : "None"}
+        </p>
+
+        <button id="applyBtn">Apply Job</button>
+        <h3 style="text-align:center; margin-top:20px; margin-bottom:10px;">
+            Top Matching Domains (Based on Resume)
+        </h3>
+
+        <canvas id="chart"></canvas>
+    `;
+
+    // Pointer
+    document.getElementById("pointer").style.left = `calc(${data.score}% - 8px)`;
+
+    // CHART
+    const ctx = document.getElementById("chart").getContext("2d");
+
+    if (chart) chart.destroy();
+
+    const labels = data.top_domains.map(d => d.domain);
+    const values = data.top_domains.map(d => d.score);
+
+    chart = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Match %",
+                data: values,
+                backgroundColor: ["#4CAF50", "#FFC107", "#F44336"],
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+
+                datalabels: {
+                    anchor: "end",
+                    align: "top",
+                    formatter: value => value + "%",
+                    font: { weight: "bold" }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+
+    // APPLY BUTTON CLICK
+    document.getElementById("applyBtn").addEventListener("click", async () => {
+
+        const formData = new FormData();
+        formData.append("name", globalData.name);
+        formData.append("email", globalData.email || "Not Provided");
+        formData.append("phone", globalData.phone || "Not Provided");
+        formData.append("job_title",globalData.job_title);
+        formData.append("score", globalData.score);
+        formData.append("missing_skills", globalData.missing_skills.join(", "));
+
+        const res = await fetch("/apply", {
+            method: "POST",
+            body: formData
+        });
+
+        const result = await res.json();
+        alert(
+        result.message || 
+        JSON.stringify(result.detail) || 
+        "Something went wrong"
+        );
+    });
+
+});
+</script>
+
+</body>
+</html>

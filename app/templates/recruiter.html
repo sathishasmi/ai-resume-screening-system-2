@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Recruiter Dashboard</title>
+    <style>
+        body {
+            font-family: Arial;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+
+        th {
+            background: #1976d2;
+            color: white;
+        }
+
+        button {
+            padding: 5px 10px;
+            margin: 2px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .select-btn {
+            background: green;
+            color: white;
+        }
+
+        .unselect-btn {
+            background: red;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>Recruiter Dashboard</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Job</th>
+            <th>Score</th>
+            <th>Missing Skills</th>
+            <th>Reason</th>
+            <th>Selected</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+</table>
+
+<script>
+async function loadCandidates() {
+    const res = await fetch("/recruiter/candidates");
+    const data = await res.json();
+
+    const table = document.getElementById("tableBody");
+    table.innerHTML = "";
+
+    data.forEach(c => {
+        table.innerHTML += `
+            <tr>
+                <td>${c.id}</td>
+                <td>${c.name}</td>
+                <td>${c.email}</td>
+                <td>${c.phone}</td>
+                <td>${c.job_title}</td>
+                <td>${c.score}</td>
+                <td>${c.missing_skills || "None"}</td>
+                <td>${c.reason || "-"}</td>
+                <td>${c.selected ? "Yes" : "No"}</td>
+                <td>
+                    <button class="select-btn" onclick="selectCandidate(${c.id})">Select</button>
+                    <button class="unselect-btn" onclick="unselectCandidate(${c.id})">Unselect</button>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+// SELECT candidate
+async function selectCandidate(id) {
+    const reason = prompt("Enter reason for selecting:");
+
+    const formData = new FormData();
+    formData.append("id", id);
+    formData.append("selected", true);
+    formData.append("reason", reason || "Selected candidate");
+
+    const res = await fetch("/recruiter/select", {
+        method: "POST",
+        body: formData
+    });
+
+    const result = await res.json();
+    alert(result.message);
+
+    loadCandidates();
+}
+
+// UNSELECT candidate
+async function unselectCandidate(id) {
+    const reason = prompt("Enter reason for unselecting:");
+
+    const formData = new FormData();
+    formData.append("id", id);
+    formData.append("selected", false);
+    formData.append("reason", reason || "Rejected candidate");
+
+    const res = await fetch("/recruiter/select", {
+        method: "POST",
+        body: formData
+    });
+
+    const result = await res.json();
+    alert(result.message);
+
+    loadCandidates();
+}
+
+// Load data on page open
+loadCandidates();
+</script>
+
+</body>
+</html>

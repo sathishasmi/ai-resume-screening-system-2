@@ -1,0 +1,14 @@
+fastapi==0.136.0
+uvicorn==0.44.0
+python-multipart==0.0.26
+PyPDF2==3.0.1
+scikit-learn==1.7.2
+joblib==1.5.3
+sentence-transformers==5.4.1
+Jinja2==3.1.6
+numpy==2.2.6
+pandas==2.3.3
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+gdown==6.0.0
+psycopg2-binary
